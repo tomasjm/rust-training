@@ -1,24 +1,37 @@
 use std::error::Error;
-use std::fs;
+use std::{env, fs};
+
 pub struct Config {
     query: String,
-    file_path: String
+    file_path: String,
+    ignore_case: bool,
 }
 impl Config {
     pub fn new(args: &Vec<String>) -> Result<Config, &'static str> {
         if args.len() < 3 {
-            return Err("No se han proporcionado los argumentos suficientes")
+            return Err("No se han proporcionado los argumentos suficientes");
         }
         let query = args[1].clone();
         let file_path = args[2].clone();
-        Ok(Config { query, file_path})        
+        let ignore_case = env::var("IGNORE_CASE").is_ok();
+        Ok(Config {
+            query,
+            file_path,
+            ignore_case,
+        })
     }
 }
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let contents = fs::read_to_string(config.file_path)?;
 
-    for line in search(&config.query, &contents) {
+    let results = if config.ignore_case {
+        search_case_insensitive(&config.query, &contents)
+    } else {
+        search(&config.query, &contents)
+    };
+
+    for line in results {
         println!("{line}");
     }
     Ok(())
@@ -34,7 +47,6 @@ pub fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
     results
 }
 
-
 pub fn search_case_insensitive<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
     let query = query.to_lowercase();
     let mut results = Vec::new();
@@ -45,7 +57,6 @@ pub fn search_case_insensitive<'a>(query: &str, contents: &'a str) -> Vec<&'a st
     }
     results
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -64,7 +75,7 @@ Duct tape.";
     #[test]
     fn case_insensitive() {
         let query = "rUsT";
-                let contents = "\
+        let contents = "\
 Rust:
 safe, fast, productive.
 Pick three.
@@ -75,4 +86,3 @@ Trust me.";
         );
     }
 }
-
